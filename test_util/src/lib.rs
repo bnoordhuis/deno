@@ -49,6 +49,7 @@ use tokio_rustls::TlsAcceptor;
 use tokio_tungstenite::accept_async;
 
 const PORT: u16 = 4545;
+const OK_PORT: u16 = 4000;
 const REDIRECT_PORT: u16 = 4546;
 const ANOTHER_REDIRECT_PORT: u16 = 4547;
 const DOUBLE_REDIRECTS_PORT: u16 = 4548;
@@ -727,6 +728,26 @@ async fn wrap_main_https_server() {
   }
 }
 
+async fn wrap_ok_server() {
+  let ok_server_svc =
+    make_service_fn(|_| async { Ok::<_, Infallible>(service_fn(ok_server)) });
+  let ok_server_addr = SocketAddr::from(([127, 0, 0, 1], OK_PORT));
+  let ok_server = Server::bind(&ok_server_addr).serve(ok_server_svc);
+  if let Err(e) = ok_server.await {
+    eprintln!("HTTP server error: {:?}", e);
+  }
+}
+
+async fn ok_server(_req: Request<Body>) -> hyper::Result<Response<Body>> {
+  let res = Response::builder()
+    .status(200)
+    .header(hyper::header::CONTENT_LENGTH, "2")
+    .header(hyper::header::DATE, "Wed, 27 Jan 2021 10:55:19 GMT")
+    .body("ok".into())
+    .unwrap();
+  Ok(res)
+}
+
 // Use the single-threaded scheduler. The hyper server is used as a point of
 // comparison for the (single-threaded!) benchmarks in cli/bench. We're not
 // comparing apples to apples if we use the default multi-threaded scheduler.
@@ -750,6 +771,8 @@ pub async fn run_all_servers() {
   let main_server_fut = wrap_main_server();
   let main_server_https_fut = wrap_main_https_server();
 
+  let ok_server_fut = wrap_ok_server();
+
   let mut server_fut = async {
     futures::join!(
       redirect_server_fut,
@@ -761,6 +784,7 @@ pub async fn run_all_servers() {
       abs_redirect_server_fut,
       main_server_fut,
       main_server_https_fut,
+      ok_server_fut,
     )
   }
   .boxed();
