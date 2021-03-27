@@ -144,8 +144,7 @@ impl Drop for JsRuntime {
 
 #[allow(clippy::missing_safety_doc)]
 pub unsafe fn v8_init() {
-  let platform = v8::new_default_platform().unwrap();
-  v8::V8::initialize_platform(platform);
+  // Embedder is expected to initialize the platform.
   v8::V8::initialize();
   let argv = vec![
     "".to_string(),
